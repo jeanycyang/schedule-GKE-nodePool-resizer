@@ -11,6 +11,7 @@ import (
 	containerpb "google.golang.org/genproto/googleapis/container/v1"
 )
 
+// CommonFields are basic settings on GCP
 type CommonFields struct {
 	ProjectId string
 	Zone      string
@@ -23,10 +24,16 @@ var commonFields = &CommonFields{
 	ClusterId: os.Getenv("CLUSTER_ID"),
 }
 
+// NodePoolStatus contains useful node pool status
+type NodePoolStatus struct {
+	Name             string
+	InitialNodeCount int32
+}
+
 var ctx = context.Background()
 var client, _ = container.NewClusterManagerClient(ctx, option.WithCredentialsFile(os.Getenv("GCKEY_FILE_PATH")))
 
-func getPools() []string {
+func getNodePoolStatuses() []NodePoolStatus {
 	req := &containerpb.ListNodePoolsRequest{
 		ProjectId: commonFields.ProjectId,
 		Zone:      commonFields.Zone,
@@ -37,11 +44,14 @@ func getPools() []string {
 		log.Fatal(err.Error())
 	}
 	nodePools := resp.NodePools
-	var names = make([]string, len(nodePools))
+	var statuses = make([]NodePoolStatus, len(nodePools))
 	for index, nodePool := range nodePools {
-		names[index] = nodePool.Name
+		statuses[index] = NodePoolStatus{
+			Name:             nodePool.Name,
+			InitialNodeCount: nodePool.InitialNodeCount,
+		}
 	}
-	return names
+	return statuses
 }
 
 func setNodePoolSize(nodePoolId string, nodeCount int32) {
@@ -61,9 +71,9 @@ func setNodePoolSize(nodePoolId string, nodeCount int32) {
 }
 
 func main() {
-	nodePoolNames := getPools()
+	nodePoolStatuses := getNodePoolStatuses()
 	// You can only resize one nodePool size at a time
 	// and have to wait for GKE done resizing
-	setNodePoolSize(nodePoolNames[0], 0)
+	setNodePoolSize(nodePoolStatuses[0].Name, 0)
 	// TODO: waiting for resizing job done and set another nodePool size
 }
