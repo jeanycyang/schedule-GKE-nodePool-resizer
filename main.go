@@ -30,6 +30,12 @@ type NodePoolStatus struct {
 	InitialNodeCount int32
 }
 
+// NodePoolDesiredStatus:
+type NodePoolDesiredStatus struct {
+	Name             string
+	DesiredNodeCount int32
+}
+
 var ctx = context.Background()
 var client, _ = container.NewClusterManagerClient(ctx, option.WithCredentialsFile(os.Getenv("GCKEY_FILE_PATH")))
 
@@ -72,8 +78,21 @@ func setNodePoolSize(nodePoolId string, nodeCount int32) {
 
 func main() {
 	nodePoolStatuses := getNodePoolStatuses()
+	nodePoolDesiredStatuses := [1]NodePoolDesiredStatus{}
+	// @TODO: desired statuses should be an argument
+	nodePoolDesiredStatuses[0] = NodePoolDesiredStatus{
+		Name:             "pool-1",
+		DesiredNodeCount: 1,
+	}
 	// You can only resize one nodePool size at a time
 	// and have to wait for GKE done resizing
-	setNodePoolSize(nodePoolStatuses[0].Name, 0)
+	for _, desiredStatus := range nodePoolDesiredStatuses {
+		for _, nodePoolStatus := range nodePoolStatuses {
+			if desiredStatus.Name == nodePoolStatus.Name &&
+				desiredStatus.DesiredNodeCount != nodePoolStatus.InitialNodeCount {
+				setNodePoolSize(desiredStatus.Name, desiredStatus.DesiredNodeCount)
+			}
+		}
+	}
 	// TODO: waiting for resizing job done and set another nodePool size
 }
